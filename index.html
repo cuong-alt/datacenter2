@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>テキスト翻訳</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for webkit browsers */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+        /* PDF embed styling */
+        embed, iframe {
+            width: 100%;
+            height: calc(100vh - 200px); /* Adjust height as needed */
+            border: none;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Tab content to fill remaining height */
+        .tab-content-wrapper {
+            /* Updated height: 100vh - header height (73px) - tab nav height (57px) */
+            height: calc(100vh - 130px); 
+            overflow-y: auto;
+        }
+        .tab-panel-inner {
+            /* Adjusted for new wrapper height and padding */
+            height: calc(100vh - 178px); 
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+
+    <div class="flex flex-col h-screen">
+        <!-- *** HEADER (UPDATED) *** -->
+        <header class="bg-white dark:bg-gray-800 shadow-sm p-4 flex justify-between items-center space-x-4">
+            <!-- Left Side: Title -->
+            <h1 class="text-xl font-semibold text-gray-800 dark:text-gray-200 flex-shrink-0">テキスト翻訳</h1>
+
+            <!-- Right Side: Controls -->
+            <div class="flex items-center space-x-4 flex-wrap justify-end">
+                
+                <!-- API Key (Moved from Tab 1) -->
+                <div class="flex items-center space-x-2">
+                    <label for="api-key" class="text-sm font-medium text-gray-700 dark:text-gray-300 flex-shrink-0" data-key="apiKeyLabel">
+                        Gemini API キー
+                    </label>
+                    <input type="password" id="api-key" class="block w-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700">
+                    <button id="save-api-key-button" class="flex-shrink-0 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-blue-700 dark:hover:bg-blue-800">
+                        <span data-key="saveApiKeyButton">Lưu</span>
+                    </button>
+                    <a href="https://aistudio.google.com/app/apikey?hl=vi" target="_blank" rel="noopener noreferrer" 
+                       class="ml-1 p-1 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:hover:bg-blue-800 no-underline flex-shrink-0"
+                       data-key="getApiKey">
+                       ?
+                    </a>
+                </div>
+
+                <!-- Model Select (Moved from Tab 1) -->
+                <div class="flex items-center space-x-2">
+                    <label for="model-select" class="text-sm font-medium text-gray-700 dark:text-gray-300 flex-shrink-0" data-key="modelLabel">Gemini モデル</label>
+                    <select id="model-select" class="block w-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700">
+                        <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash</option>
+                        <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option>
+                        <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash</option>
+                    </select>
+                </div>
+                
+                <!-- Language Toggle -->
+                <button id="lang-toggle" class="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-sm font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex-shrink-0">
+                    VI
+                </button>
+            </div>
+        </header>
+        <!-- *** END HEADER *** -->
+
+
+        <!-- START: Tab Navigation -->
+        <div class="px-6 pt-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <nav class="flex space-x-4">
+                <button id="tab-btn-1" class="tab-btn px-4 py-2 font-medium text-sm rounded-t-md" data-tab="1">
+                    <span data-key="tabQuickTranslate">Dịch Nhanh</span>
+                </button>
+                <button id="tab-btn-2" class="tab-btn px-4 py-2 font-medium text-sm rounded-t-md" data-tab="2">
+                    <span data-key="tabContextTranslate">Dịch Ngữ Cảnh</span>
+                </button>
+                <button id="tab-btn-3" class="tab-btn px-4 py-2 font-medium text-sm rounded-t-md" data-tab="3">
+                    <span data-key="tabInfoSearch">Tìm kiếm thông tin</span>
+                </button>
+                <button id="tab-btn-4" class="tab-btn px-4 py-2 font-medium text-sm rounded-t-md" data-tab="4">
+                    <span data-key="tabProofread">Chỉnh sửa & Viết lại</span>
+                </button>
+            </nav>
+        </div>
+        <!-- END: Tab Navigation -->
+
+        <!-- START: Tab Content Wrapper -->
+        <div class="flex-grow overflow-auto tab-content-wrapper">
+            
+            <!-- Tab Panel 1: Current Interface -->
+            <div id="tab-panel-1" class="tab-panel">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-6 p-6">
+
+                    <!-- Left Pane: Source Document (40%) -->
+                    <div class="flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden md:col-span-2 tab-panel-inner">
+                        <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                            <h2 class="text-lg font-semibold" data-key="sourceTitle">原文ドキュメント</h2>
+                        </div>
+                        
+                        <div class="p-4 space-y-4">
+                            <input type="file" id="file-upload" accept=".jpg, .jpeg, .png, .pdf" class="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-full file:border-0
+                                file:text-sm file:font-semibold
+                                file:bg-blue-50 file:text-blue-700
+                                hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300 dark:hover:file:bg-blue-800
+                            ">
+                            
+                            <button id="image-translate-button" disabled
+                                class="w-full py-2 px-4 rounded-md font-semibold text-sm bg-gray-300 text-gray-500 cursor-not-allowed
+                                dark:bg-gray-700 dark:text-gray-400
+                                flex items-center justify-center space-x-2">
+                                <span data-key="translateImageButton">画像から翻訳 (AI)</span>
+                                <div id="image-loader" class="loader hidden"></div>
+                            </button>
+                        </div>
+
+                        <div id="document-viewer" class="flex-grow p-4 border-t border-gray-200 dark:border-gray-700 overflow-auto custom-scrollbar">
+                            <div id="viewer-placeholder" class="h-full flex items-center justify-center text-gray-400 dark:text-gray-500">
+                                <span data-key="uploadPlaceholder">原文ドキュメントをアップロードしてください...</span>
+                            </div>
+                            <img id="image-preview" src="" alt="Image Preview" class="hidden max-w-full h-auto rounded-md">
+                            <div id="pdf-preview-container" class="hidden h-full">
+                                <embed id="pdf-preview" src="" type="application/pdf">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Pane: Translation Workspace (60%) -->
+                    <div class="flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden md:col-span-3 tab-panel-inner">
+                        <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                            <h2 class="text-lg font-semibold" data-key="translationTitle">翻訳ワークスペース</h2>
+                        </div>
+
+                        <!-- Right Pane Inner Scroll -->
+                        <div class="flex-grow overflow-auto custom-scrollbar">
+                            <div class="p-4 space-y-4">
+                                
+                                <!-- *** API Key and Model Selection MOVED TO HEADER *** -->
+
+                                <!-- Source Text Input -->
+                                <div>
+                                    <div class="flex justify-between items-center">
+                                        <label for="source-text" class="text-sm font-medium text-gray-700 dark:text-gray-300" data-key="sourceInputLabel">原文テキスト</label>
+                                        <button id="voice-input-button" class="p-1 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700" title="Nhập bằng giọng nói">
+                                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-3 4a1 1 0 000 2h10a1 1 0 100-2H3z" clip-rule="evenodd"></path></svg>
+                                        </button>
+                                    </div>
+                                    <textarea id="source-text" rows="8" class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 custom-scrollbar" data-placeholder-key="pasteSourceText"></textarea>
+                                </div>
+
+                                <!-- Translate Button -->
+                                <button id="translate-button" class="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 dark:bg-green-700 dark:hover:bg-green-800">
+                                    <span data-key="translateButton">翻訳</span>
+                                    <div id="translate-loader" class="loader hidden ml-2"></div>
+                                </button>
+                                
+                                <!-- AI Translation Result -->
+                                <div id="ai-translation-card" class="hidden">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300" data-key="aiResultTitle">翻訳結果 (AI)</label>
+                                        <button id="copy-button" 
+                                                class="px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+                                                data-key="copyButton">
+                                            コピー
+                                        </button>
+                                    </div>
+                                    <div id="translation-output" class="mt-1 w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md min-h-[100px] whitespace-pre-wrap"></div>
+
+                                    <!-- Reverse Translate Button -->
+                                    <button id="reverse-translate-button" class="w-full flex justify-center items-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-2">
+                                        <span data-key="reverseTranslateButton">Dịch ngược lại</span>
+                                        <div id="reverse-loader" class="loader hidden ml-2"></div>
+                                    </button>
+
+                                    <!-- Reverse Translation Result -->
+                                    <div id="reverse-translation-card" class="hidden mt-3">
+                                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300" data-key="reverseResultTitle">Kết quả dịch ngược (đối chiếu)</label>
+                                        <div id="reverse-translation-output" class="mt-1 w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md min-h-[50px] whitespace-pre-wrap"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Specialized Dictionary -->
+                            <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                                <h3 class="text-md font-semibold mb-3" data-key="dictionaryTitle">辞書検索（日/越）</h3>
+                                <div id="dictionary-results" class="space-y-2">
+                                    <!-- Results will be injected here -->
+                                </div>
+                                <div id="no-results" class="p-4 text-center text-gray-500 rounded-lg bg-gray-50 dark:bg-gray-800 dark:text-gray-400 hidden">
+                                    <span data-key="dictionaryNoResults">専門用語辞書に該当する用語が見つかりません。</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+
+            <!-- Tab Panel 2: Context Translation -->
+            <div id="tab-panel-2" class="tab-panel hidden">
+                <div class="flex flex-col p-6 tab-panel-inner bg-white dark:bg-gray-800">
+                    <!-- Chat Messages Area -->
+                    <div id="chat-messages" class="flex-grow space-y-4 p-4 overflow-y-auto custom-scrollbar border rounded-md dark:border-gray-700">
+                        <!-- Chat messages will be appended here -->
+                        <div class="w-full flex justify-center mb-3">
+                            <div class="p-3 rounded-lg max-w-[80%] whitespace-pre-wrap text-sm text-gray-500 italic" data-key="contextStart">
+                                Bắt đầu cuộc hội thoại...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="mt-4 flex space-x-2">
+                        <textarea id="context-input" rows="2" 
+                                class="flex-grow block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 custom-scrollbar" 
+                                data-placeholder-key="contextInputPlaceholder"></textarea>
+                        
+                        <button id="context-voice-button" 
+                                class="p-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-3 4a1 1 0 000 2h10a1 1 0 100-2H3z" clip-rule="evenodd"></path></svg>
+                        </button>
+
+                        <button id="context-send-button" 
+                                class="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-blue-700 dark:hover:bg-blue-800">
+                            <span data-key="contextSendButton">Gửi</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Panel 3: Information Search -->
+            <div id="tab-panel-3" class="tab-panel hidden">
+                <div class="flex flex-col p-6 tab-panel-inner bg-white dark:bg-gray-800"> 
+                    <!-- Search Input Area -->
+                    <div class="flex space-x-2 flex-shrink-0">
+                        <input type="text" id="search-input" 
+                               class="flex-grow block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700" 
+                               data-placeholder-key="searchInputPlaceholder">
+                        <button id="search-button" 
+                                class="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-blue-700 dark:hover:bg-blue-800 flex items-center justify-center space-x-2">
+                            <span data-key="searchButton">Tìm kiếm</span>
+                            <div id="search-loader" class="loader hidden"></div>
+                        </button>
+                    </div>
+        
+                    <!-- Search Results Area -->
+                    <div id="search-results-wrapper" class="mt-6 flex-grow overflow-y-auto custom-scrollbar border rounded-md dark:border-gray-700 hidden"> 
+                        <div class="p-4">
+                            <h3 class="text-lg font-semibold mb-3" data-key="searchResultsTitle">Kết quả tìm kiếm</h3>
+                            <div id="search-results-output" class="p-4 bg-gray-50 dark:bg-gray-900 rounded-md min-h-[100px] whitespace-pre-wrap">
+                                <!-- Search results will be appended here -->
+                            </div>
+                            <h4 class="text-md font-semibold mt-4 mb-2" data-key="searchSourcesTitle">Nguồn</h4>
+                            <div id="search-sources-output" class="space-y-2">
+                                <!-- Search sources will be appended here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Panel 4: Proofread & Refine -->
+            <div id="tab-panel-4" class="tab-panel hidden">
+                <div class="flex flex-col p-6 tab-panel-inner bg-white dark:bg-gray-800 overflow-auto custom-scrollbar"> 
+                    <div class="space-y-4">
+                        <!-- Input -->
+                        <div>
+                            <div class="flex justify-between items-center">
+                                <label for="proofread-input" class="text-sm font-medium text-gray-700 dark:text-gray-300" data-key="proofreadInputLabel">Văn bản gốc (để sửa lỗi)</label>
+                                <button id="proofread-voice-button" class="p-1 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700" title="Nhập bằng giọng nói">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-3 4a1 1 0 000 2h10a1 1 0 100-2H3z" clip-rule="evenodd"></path></svg>
+                                </button>
+                            </div>
+                            <textarea id="proofread-input" rows="8" class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 custom-scrollbar" data-placeholder-key="proofreadInputPlaceholder"></textarea>
+                        </div>
+
+                        <!-- Button -->
+                        <button id="proofread-button" class="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 dark:bg-purple-700 dark:hover:bg-purple-800">
+                            <span data-key="proofreadButton">Chỉnh sửa & Viết lại</span>
+                            <div id="proofread-loader" class="loader hidden ml-2"></div>
+                        </button>
+
+                        <!-- Result 1: Improved Text -->
+                        <div id="proofread-result-card" class="hidden space-y-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300" data-key="proofreadResultTitle">Văn bản đã cải thiện</label>
+                                    <button id="proofread-copy-button" 
+                                            class="px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+                                            data-key="copyButton">
+                                        Sao chép
+                                    </button>
+                                </div>
+                                <div id="proofread-output" class="mt-1 w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md min-h-[150px] whitespace-pre-wrap"></div>
+                            </div>
+
+                            <!-- Result 2: Translated Improved Text -->
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300" data-key="proofreadTranslateTitle">Bản dịch (từ văn bản đã cải thiện)</label>
+                                    <button id="proofread-translated-copy-button" 
+                                            class="px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+                                            data-key="copyButton">
+                                        Sao chép
+                                    </button>
+                                </div>
+                                <div id="proofread-translated-output" class="mt-1 w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md min-h-[150px] whitespace-pre-wrap"></div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            
+        </div> <!-- End Tab Content Wrapper -->
+
+    </div>
+
+    <script>
+        // --- TRANSLATION DATA ---
+        const translations = {
+            "vi": {
+                "tabQuickTranslate": "Dịch Nhanh",
+                "tabContextTranslate": "Dịch Ngữ Cảnh",
+                "tabInfoSearch": "Tìm kiếm thông tin",
+                "tabProofread": "Chỉnh sửa & Viết lại",
+                "contextStart": "Bắt đầu cuộc hội thoại...",
+                "contextInputPlaceholder": "Nhập tin nhắn (Việt hoặc Nhật)...",
+                "contextSendButton": "Gửi",
+                "contextThinking": "...",
+                "sourceTitle": "Tài liệu gốc",
+                "uploadPlaceholder": "Upload tài liệu gốc... (hoặc dán ảnh)",
+                "translateImageButton": "Dịch từ Ảnh (AI)",
+                "translationTitle": "Không gian dịch thuật",
+                "apiKeyLabel": "API Key Gemini",
+                "getApiKey": "?", // Changed to ?
+                "saveApiKeyButton": "Lưu Key",
+                "saveApiKeySuccess": "Đã lưu!",
+                "modelLabel": "Model Gemini",
+                "sourceInputLabel": "Văn bản gốc",
+                "pasteSourceText": "Dán văn bản (Nhật/Việt) vào đây...",
+                "translateButton": "Dịch",
+                "aiResultTitle": "Kết quả dịch (AI)",
+                "copyButton": "Sao chép",
+                "copied": "Đã sao chép!",
+                "reverseTranslateButton": "Dịch ngược lại",
+                "reverseResultTitle": "Kết quả dịch ngược (đối chiếu)",
+                "reversing": "Đang dịch ngược...",
+                "dictionaryTitle": "Tra cứu từ điển (Nhật/Việt)",
+                "dictionaryNoResults": "Không tìm thấy thuật ngữ trong từ điển chuyên ngành.",
+                "langButton": "JA",
+                "errorTitle": "Lỗi",
+                "errorApiKey": "Vui lòng nhập API Key của Gemini.",
+                "errorFetch": "Đã xảy ra lỗi khi gọi API. Vui lòng kiểm tra console.",
+                "errorImageFormat": "Định dạng ảnh không được hỗ trợ để dịch. Vui lòng sử dụng JPG hoặc PNG.",
+                "errorSearch": "Không thể tìm thấy thông tin.",
+                "translating": "Đang dịch...",
+                "translatingImage": "Đang phân tích ảnh...",
+                "voiceButton": "Nhập bằng giọng nói",
+                "voiceListening": "Đang nghe...",
+                "voiceError": "Lỗi nhận dạng",
+                "contextVoiceButton": "Ghi âm",
+                "contextVoiceListening": "Đang ghi âm...",
+                "contextVoiceError": "Lỗi ghi âm",
+                "searchInputPlaceholder": "Nhập nội dung cần tìm kiếm...",
+                "searchButton": "Tìm kiếm",
+                "searching": "Đang tìm kiếm...",
+                "searchResultsTitle": "Kết quả tìm kiếm",
+                "searchSourcesTitle": "Nguồn",
+                "proofreadInputLabel": "Văn bản gốc (để sửa lỗi)",
+                "proofreadInputPlaceholder": "Nhập văn bản (Việt/Nhật) cần sửa lỗi, viết lại...",
+                "proofreadButton": "Chỉnh sửa & Viết lại",
+                "proofreading": "Đang xử lý...",
+                "proofreadResultTitle": "Văn bản đã cải thiện",
+                "proofreadTranslateTitle": "Bản dịch (từ văn bản đã cải thiện)",
+                "proofreadVoiceButton": "Ghi âm",
+                "proofreadVoiceListening": "Đang ghi âm...",
+                "proofreadVoiceError": "Lỗi ghi âm"
+            },
+            "ja": {
+                "tabQuickTranslate": "クイック翻訳",
+                "tabContextTranslate": "文脈翻訳",
+                "tabInfoSearch": "情報検索",
+                "tabProofread": "校正とリファイン",
+                "contextStart": "会話を開始...",
+                "contextInputPlaceholder": "メッセージを入力 (日・越)...",
+                "contextSendButton": "送信",
+                "contextThinking": "...",
+                "sourceTitle": "原文ドキュメント",
+                "uploadPlaceholder": "原文ドキュメントをアップロード... (または画像を貼り付け)",
+                "translateImageButton": "画像から翻訳 (AI)",
+                "translationTitle": "翻訳ワークスペース",
+                "apiKeyLabel": "Gemini API キー",
+                "getApiKey": "?", // Changed to ?
+                "saveApiKeyButton": "キーを保存",
+                "saveApiKeySuccess": "保存しました",
+                "modelLabel": "Gemini モデル",
+                "sourceInputLabel": "原文テキスト",
+                "pasteSourceText": "テキスト（日/越）をここに貼り付けてください...",
+                "translateButton": "翻訳",
+                "aiResultTitle": "翻訳結果 (AI)",
+                "copyButton": "コピー",
+                "copied": "コピーしました!",
+                "reverseTranslateButton": "逆翻訳", 
+                "reverseResultTitle": "逆翻訳の結果（照合用）",
+                "reversing": "逆翻訳中...",
+                "dictionaryTitle": "辞書検索（日/越）",
+                "dictionaryNoResults": "専門用語辞書に該当する用語が見つかりません。",
+                "langButton": "VI",
+                "errorTitle": "エラー",
+                "errorApiKey": "Gemini APIキーを入力してください。",
+                "errorFetch": "APIの呼び出し中にエラーが発生しました。コンソールを確認してください。",
+                "errorImageFormat": "この画像形式は翻訳に対応していません。JPGまたはPNGを使用してください。",
+                "errorSearch": "情報が見つかませんでした。",
+                "translating": "翻訳中...",
+                "translatingImage": "画像分析中...",
+                "voiceButton": "音声入力",
+                "voiceListening": "聞いています...",
+                "voiceError": "認識エラー",
+                "contextVoiceButton": "音声入力",
+                "contextVoiceListening": "録音中...",
+                "contextVoiceError": "認識エラー",
+                "searchInputPlaceholder": "検索内容を入力...",
+                "searchButton": "検索",
+                "searching": "検索中...",
+                "searchResultsTitle": "検索結果",
+                "searchSourcesTitle": "ソース",
+                "proofreadInputLabel": "原文（校正用）",
+                "proofreadInputPlaceholder": "校正・リファインするテキストを入力...",
+                "proofreadButton": "校正とリファイン",
+                "proofreading": "処理中...",
+                "proofreadResultTitle": "改善されたテキスト",
+                "proofreadTranslateTitle": "改善版の翻訳",
+                "proofreadVoiceButton": "音声入力",
+                "proofreadVoiceListening": "録音中...",
+                "proofreadVoiceError": "認識エラー"
+            }
+        };
+
+        let currentLang = 'ja';
+        let currentImageBase64 = null;
+        let currentImageMimeType = null;
+        let isListening = false;
+        let isListeningTab2 = false;
+        let isListeningTab4 = false;
+        let contextChatHistory = [];
+        let isContextTranslating = false;
+
+        // --- SPECIALIZED DICTIONARY ---
+        const photoDictionary = {
+            // ... (Updated dictionary from previous steps)
+            "色調補正": "Chỉnh sửa tone màu (Tone Correction)",
+            "トーンカーブ": "Đường cong (Curves)",
+            "レベル補正": "Chỉnh sửa Levels (Levels)",
+            "明るさ・コントラスト": "Độ sáng / Tương phản (Brightness / Contrast)",
+            "カラーバランス": "Cân bằng màu (Color Balance)",
+            "白黒": "Trắng đen (Black & White)",
+            "色相・彩度": "Hue / Saturation",
+            "自然な彩度": "Độ bão hòa tự nhiên (Vibrance)",
+            "チャンネルミキサー": "Trộn kênh (Channel Mixer)",
+            "フィルター": "Bộ lọc (Filter)",
+            "ぼかし": "Làm mờ (Blur)",
+            "シャープ": "Làm sắc nét (Sharpen)",
+            "ノイズ": "Nhiễu (Noise)",
+            "ピクセル": "Pixel",
+            "ゆがみ": "Biến dạng / Kéo (Liquify)",
+            "レイヤー": "Lớp (Layer)",
+            "レイヤーマスク": "Mặt nạ lớp (Layer Mask)",
+            "不透明度": "Độ mờ (Opacity)",
+            "塗りつぶし": "Tô đầy (Fill)",
+            "描画モード": "Chế độ hòa trộn (Blend Mode)",
+            "スマートオブジェクト": "Đối tượng thông minh (Smart Object)",
+            "切り抜き": "Cắt (Crop)",
+            "解像度": "Độ phân giải (Resolution)",
+            "画像サイズ": "Kích thước ảnh (Image Size)",
+            "カンバスサイズ": "Kích thước canvas (Canvas Size)",
+            "ヒストグラム": "Biểu đồ (Histogram)",
+            "パス": "Đường dẫn (Path)",
+            "ペンツール": "Công cụ Pen (Pen Tool)",
+            "選択範囲": "Vùng chọn (Selection)",
+            "なげなわツール": "Công cụ Lasso (Lasso Tool)",
+            "自動選択": "Chọn tự động (Magic Wand)",
+            "クイック選択": "Chọn nhanh (Quick Selection)",
+            "ブラシ": "Cọ vẽ (Brush)",
+            "コピースタンプ": "Clone Stamp",
+            "修復ブラシ": "Healing Brush",
+            "スポット修復ブラシ": "Spot Healing Brush",
+            "パッチツール": "Công cụ Patch (Patch Tool)",
+            "赤目補正": "Chỉnh mắt đỏ (Red Eye Tool)",
+            "グラデーション": "Chuyển sắc (Gradient)",
+            "テキスト": "Văn bản (Text)",
+            "シェイプ": "Hình dạng (Shape)",
+            "バッチ処理": "Xử lý hàng loạt (Batch)",
+            "アクション": "Hành động (Action)",
+            // Retouching terms
+            "唇と唇周りのテカリを抑える": "giảm bóng nhờn ở xung quanh môi và môi",
+            "向かって右側の影を薄く馴染ませる": "làm đều làm mờ bóng đen ở phía bên phải màn hình",
+            "爪のテカリを抑える": "giảm bóng nhờn ở móng tay",
+            "ほうれい線": "khóe miệng", // Updated term
+            "ほうれい線を薄く馴染ませる": "làm đều làm mờ khóe miệng", // Updated term
+            "向かって左頬の影を馴染ませる": "làm đều bóng đen ở má bên trái màn hình",
+            "向かって右頬のテカリを抑える": "giảm bóng nhờn ở má bên phải màn hình",
+            "鼻の横のテカリを抑える": "giảm bóng nhờn ở ngang mũi",
+            "目の横の影を馴染ませる": "làm đều bóng đen ở ngang mắt",
+            "鼻のテカリと影を馴染ませる": "làm đều bóng đen và bóng nhờn ở mũi",
+            "向かって左の肩にかかる髪を消す": "xóa tóc che ở vai bên trái màn hình",
+            "向かって左髪の隙間を埋める": "lấp kẽ hở của tóc ở bên trái màn hình",
+            "腕赤部分の影を馴染ませる": "làm đều bóng đen ở phần màu đỏ ở cánh tay",
+            "目頭の影を薄く馴染ませる": "làm đều làm mờ bóng đen ở đầu mắt",
+            "鼻の下の影を馴染ませる": "làm đều bóng đen ở phía dưới mũi",
+            "髪の影を馴染ませる": "làm đều bóng đen của tóc",
+            "口横と鼻横の影を馴染ませる": "làm đều bóng đen ở ngang mũi và ngang miệng",
+            "キャッチを強くする(左に合わせる)": "làm mạnh bắt mắt (làm hợp với bên trái)",
+            "口横と頬と鼻の頭のテカリを抑える": "giảm bóng nhờn ở đầu mũi và má và ngang miệng",
+            "鼻横の影を馴染ませる": "làm đều bóng đen ở ngang mũi",
+            "小鼻のテカリを抑える": "giảm bóng nhờn ở cánh mũi",
+            "耳と唇と唇周りのテカリを抑える": "giảm bóng nhờn ở xung quanh môi và môi và tai",
+            "袖の穴を埋める": "lấp lỗ ở tay áo",
+            "キャッチを強くする(右に合わせる)": "làm mạnh bắt mắt (làm hợp với bên phải)",
+            "歯を少しだけ明るくする": "làm sáng răng 1 chút xíu",
+            "手を少しだけ細くする": "làm thon tay 1 chút xíu",
+            "手首の影を少し薄くなじませる": "làm đều làm mờ bóng đen ở cổ tay",
+            "口の中の色を少し戻": "trả lại 1 chút màu sắc ở trong miệng",
+            "向かって右赤部分の影を馴染ませる": "làm đều bóng đen ở phần khoanh đỏ ở bên phải màn hình",
+            "向かって右側目の上の髪を消す": "xóa tóc ở phía trên của mắt bên phải màn hình",
+            "唇のテカリを抑える": "giảm bóng nhờn ở môi",
+            "口の中赤部分を少し暗くする": "làm tối 1 chút phần khoanh đỏ ở trong miệng",
+            "赤部分のテカリを抑える": "giảm bóng nhờn ở phần khoanh đỏ",
+            "赤部分の影を薄く馴染ませる": "làm đều làm mờ bóng đen ở phần khoanh đỏ",
+            "鼻横とほうれい線の影を薄く馴染ませる": "làm đều làm mờ bóng đen của khóe miệng và ngang mũi", // Updated term
+            "鼻のテカリを抑える": "giảm bóng dầu ở mũi",
+            "鼻横とほうれい線、目頭の影を薄く馴染ませる": "làm đều làm mờ bóng đen ở đầu mắt, khóe miệng và ngang mũi", // Updated term
+            "眉上のテカリを抑える": "giảm bóng dầu ở phía trên lông mày",
+            "鼻周りのテカリを抑える": "giảm bóng dầu ở xung quanh mũi",
+            "目の周りの影を馴染ませる": "làm đều bóng đen xung quanh mắt",
+            "鼻の白いところを馴染ませる": "làm đều chỗ trắng trắng ở mũi",
+            "歯と唇のテカリを抑える": "giảm bóng dầu ở răng, môi",
+            "髪を消す": "xóa tóc",
+            "口横とフェイスラインの影を馴染ませる": "làm đều bóng đen của đường viền mặt và ngang miệng",
+            "赤部分の影を馴染ませる": "làm đều bóng đen phần khoanh đỏ",
+            "首の影を馴染ませる": "làm đều bóng đen ở cổ",
+            "頬のテカリを抑える": "giảm bóng dầu ở má",
+            "唇と頬のテカリを抑える": "giảm bóng dầu ở má, môi",
+            "向かって左側赤部分のテカリを抑える": "giảm bóng dầu ở phần khoanh đỏ bên trái màn hình",
+            "向かって右側目の下の太い影を細く馴染ませる": "làm đều làm thon bóng đen bự ở phía dưới mắt phải màn hình",
+            "赤部分の歯を他の歯の色に合わせる": "làm hợp màu răng ở phần khoanh đỏ với các răng khác",
+            "赤部分のテカリを抑える": "giảm bóng dầu ở chỗ khoanh đỏ",
+            "向かって左側フェイスラインの濃い影を馴染ませる": "làm đều bóng đen đậm của đường viền mặt bên trái màn hình",
+            "向かって左側目の横のテカリを抑える": "giảm bóng dầu ở ngang mắt trái màn hình",
+            "向かって右側赤部分のテカリを抑える": "giảm bóng dầu ở phần khoanh đỏ bên phải màn hình",
+            "": "giảm bóng dầu ở môi, má\nlàm đều bóng đen phần khoanh đỏ của cánh mũi" // Handle empty key
+        };
+        const dictionaryEntries = Object.entries(photoDictionary);
+
+        // --- DOM ELEMENTS ---
+        // Tabs
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const tabPanels = document.querySelectorAll('.tab-panel');
+        const tabBtn1 = document.getElementById('tab-btn-1');
+
+        // Tab 1
+        const fileUpload = document.getElementById('file-upload');
+        const imageTranslateButton = document.getElementById('image-translate-button');
+        const imageLoader = document.getElementById('image-loader');
+        const documentViewer = document.getElementById('document-viewer');
+        const viewerPlaceholder = document.getElementById('viewer-placeholder');
+        const imagePreview = document.getElementById('image-preview');
+        const pdfPreviewContainer = document.getElementById('pdf-preview-container');
+        const pdfPreview = document.getElementById('pdf-preview');
+        
+        // ** GLOBAL (MOVED TO HEADER) **
+        const apiKeyInput = document.getElementById('api-key');
+        const saveApiKeyButton = document.getElementById('save-api-key-button');
+        const modelSelect = document.getElementById('model-select');
+        
+        const sourceText = document.getElementById('source-text');
+        const translateButton = document.getElementById('translate-button');
+        const translateLoader = document.getElementById('translate-loader');
+        const aiTranslationCard = document.getElementById('ai-translation-card');
+        const translationOutput = document.getElementById('translation-output');
+        const copyButton = document.getElementById('copy-button');
+        const voiceInputButton = document.getElementById('voice-input-button');
+        
+        const reverseTranslateButton = document.getElementById('reverse-translate-button');
+        const reverseLoader = document.getElementById('reverse-loader');
+        const reverseTranslationCard = document.getElementById('reverse-translation-card');
+        const reverseTranslationOutput = document.getElementById('reverse-translation-output');
+        
+        const dictionaryResults = document.getElementById('dictionary-results');
+        const noResults = document.getElementById('no-results');
+        
+        const langToggleButton = document.getElementById('lang-toggle');
+
+        // Tab 2
+        const contextInput = document.getElementById('context-input');
+        const contextSendButton = document.getElementById('context-send-button');
+        const chatMessages = document.getElementById('chat-messages');
+        const contextVoiceButton = document.getElementById('context-voice-button');
+
+        // Tab 3
+        const searchInput = document.getElementById('search-input');
+        const searchButton = document.getElementById('search-button');
+        const searchLoader = document.getElementById('search-loader');
+        const searchResultsWrapper = document.getElementById('search-results-wrapper');
+        const searchResultsOutput = document.getElementById('search-results-output');
+        const searchSourcesOutput = document.getElementById('search-sources-output');
+
+        // Tab 4
+        const proofreadInput = document.getElementById('proofread-input');
+        const proofreadVoiceButton = document.getElementById('proofread-voice-button');
+        const proofreadButton = document.getElementById('proofread-button');
+        const proofreadLoader = document.getElementById('proofread-loader');
+        const proofreadResultCard = document.getElementById('proofread-result-card');
+        const proofreadOutput = document.getElementById('proofread-output');
+        const proofreadCopyButton = document.getElementById('proofread-copy-button');
+        const proofreadTranslatedOutput = document.getElementById('proofread-translated-output');
+        const proofreadTranslatedCopyButton = document.getElementById('proofread-translated-copy-button');
+
+
+        // --- SPEECH RECOGNITION SETUP ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition; // For Tab 1
+        let recognitionTab2;
+        let recognitionTab4;
+
+        if (SpeechRecognition) {
+            // --- Setup for Tab 1 ---
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = currentLang === 'ja' ? 'ja-JP' : 'vi-VN';
+            recognition.onresult = (event) => {
+                sourceText.value += event.results[0][0].transcript + ' ';
+                sourceText.focus();
+                sourceText.dispatchEvent(new Event('input'));
+            };
+            recognition.onend = () => {
+                isListening = false;
+                voiceInputButton.title = translations[currentLang].voiceButton;
+                voiceInputButton.classList.remove('text-blue-500', 'animate-pulse');
+            };
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error', event.error);
+                isListening = false;
+                voiceInputButton.title = translations[currentLang].voiceError;
+                voiceInputButton.classList.add('text-red-500');
+                setTimeout(() => {
+                    voiceInputButton.classList.remove('text-red-500');
+                    voiceInputButton.title = translations[currentLang].voiceButton;
+                }, 2000);
+            };
+
+            // --- Setup for Tab 2 ---
+            recognitionTab2 = new SpeechRecognition();
+            recognitionTab2.continuous = false;
+            recognitionTab2.interimResults = false;
+            recognitionTab2.lang = currentLang === 'ja' ? 'ja-JP' : 'vi-VN';
+            recognitionTab2.onresult = (event) => {
+                contextInput.value += event.results[0][0].transcript + ' ';
+                contextInput.focus();
+            };
+            recognitionTab2.onend = () => {
+                isListeningTab2 = false;
+                contextVoiceButton.title = translations[currentLang].contextVoiceButton;
+                contextVoiceButton.classList.remove('text-blue-500', 'animate-pulse', 'dark:text-blue-400');
+                contextVoiceButton.classList.add('text-gray-600', 'dark:text-gray-300');
+            };
+            recognitionTab2.onerror = (event) => {
+                console.error('Speech recognition error (Tab 2)', event.error);
+                isListeningTab2 = false;
+                contextVoiceButton.title = translations[currentLang].contextVoiceError;
+                contextVoiceButton.classList.add('text-red-500', 'dark:text-red-400');
+                setTimeout(() => {
+                    contextVoiceButton.classList.remove('text-red-500', 'dark:text-red-400');
+                    contextVoiceButton.title = translations[currentLang].contextVoiceButton;
+                }, 2000);
+            };
+
+            // --- Setup for Tab 4 ---
+            recognitionTab4 = new SpeechRecognition();
+            recognitionTab4.continuous = false;
+            recognitionTab4.interimResults = false;
+            recognitionTab4.lang = currentLang === 'ja' ? 'ja-JP' : 'vi-VN';
+            recognitionTab4.onresult = (event) => {
+                proofreadInput.value += event.results[0][0].transcript + ' ';
+                proofreadInput.focus();
+            };
+            recognitionTab4.onend = () => {
+                isListeningTab4 = false;
+                proofreadVoiceButton.title = translations[currentLang].proofreadVoiceButton;
+                proofreadVoiceButton.classList.remove('text-blue-500', 'animate-pulse');
+            };
+            recognitionTab4.onerror = (event) => {
+                console.error('Speech recognition error (Tab 4)', event.error);
+                isListeningTab4 = false;
+                proofreadVoiceButton.title = translations[currentLang].proofreadVoiceError;
+                proofreadVoiceButton.classList.add('text-red-500');
+                setTimeout(() => {
+                    proofreadVoiceButton.classList.remove('text-red-500');
+                    proofreadVoiceButton.title = translations[currentLang].proofreadVoiceButton;
+                }, 2000);
+            };
+
+        } else {
+            console.warn("Speech recognition not supported in this browser.");
+            if (voiceInputButton) voiceInputButton.style.display = 'none';
+            if (contextVoiceButton) contextVoiceButton.style.display = 'none';
+            if (proofreadVoiceButton) proofreadVoiceButton.style.display = 'none';
+        }
+
+        // --- FUNCTIONS ---
+
+        /**
+         * START: Tab Management
+         */
+        function styleActiveTab(activeButton) {
+            tabButtons.forEach(btn => {
+                btn.classList.remove('text-blue-600', 'dark:text-blue-400', 'border-blue-600', 'dark:border-blue-400', 'border-b-2');
+                btn.classList.add('text-gray-500', 'hover:text-gray-700', 'dark:text-gray-400', 'dark:hover:text-gray-200', 'border-transparent');
+            });
+            activeButton.classList.add('text-blue-600', 'dark:text-blue-400', 'border-blue-600', 'dark:border-blue-400', 'border-b-2');
+            activeButton.classList.remove('text-gray-500', 'hover:text-gray-700', 'dark:text-gray-400', 'dark:hover:text-gray-200', 'border-transparent');
+        }
+
+        function handleTabClick(event) {
+            const clickedButton = event.currentTarget;
+            const tabToShow = clickedButton.dataset.tab;
+
+            styleActiveTab(clickedButton);
+
+            tabPanels.forEach(panel => {
+                if (panel.id === `tab-panel-${tabToShow}`) {
+                    panel.classList.remove('hidden');
+                } else {
+                    panel.classList.add('hidden');
+                }
+            });
+        }
+        /**
+         * END: Tab Management
+         */
+
+        /**
+         * Update all UI text based on the current language
+         */
+        function updateLanguage(lang) {
+            currentLang = lang;
+            const langData = translations[lang];
+            
+            document.documentElement.lang = lang;
+            langToggleButton.textContent = langData.langButton;
+            
+            document.querySelectorAll('[data-key]').forEach(el => {
+                const key = el.dataset.key;
+                if (langData[key]) {
+                    const isCopied = el.dataset.key === 'copied';
+                    const isSaved = el.dataset.key === 'saveApiKeySuccess';
+                    
+                    if ((el.id === 'copy-button' || el.id === 'proofread-copy-button' || el.id === 'proofread-translated-copy-button') && isCopied) {
+                         el.textContent = translations[currentLang].copied;
+                    } else if (el.id === 'save-api-key-button' && isSaved) { // Check ID of the button
+                         el.querySelector('span').textContent = translations[currentLang].saveApiKeySuccess; // Target the span inside
+                         el.dataset.key = 'saveApiKeySuccess'; // Keep key on button
+                    } else if (el.id === 'save-api-key-button') {
+                         el.querySelector('span').textContent = langData[key];
+                    } else if (langData[key]) {
+                        el.textContent = langData[key];
+                    }
+                }
+            });
+            
+            document.querySelectorAll('[data-placeholder-key]').forEach(el => {
+                const key = el.dataset.placeholderKey;
+                if (langData[key]) {
+                    el.placeholder = langData[key];
+                }
+            });
+
+            if (voiceInputButton) voiceInputButton.title = langData.voiceButton;
+            if (contextVoiceButton) contextVoiceButton.title = langData.contextVoiceButton;
+            if (proofreadVoiceButton) proofreadVoiceButton.title = langData.proofreadVoiceButton;
+
+            if (recognition) recognition.lang = lang === 'ja' ? 'ja-JP' : 'vi-VN';
+            if (recognitionTab2) recognitionTab2.lang = lang === 'ja' ? 'ja-JP' : 'vi-VN';
+            if (recognitionTab4) recognitionTab4.lang = lang === 'ja' ? 'ja-JP' : 'vi-VN';
+        }
+
+        /**
+         * Show an error message in the translation output box (Tab 1)
+         */
+        function showError(message, outputElement = translationOutput, cardElement = aiTranslationCard) {
+            outputElement.innerHTML = `<span class="text-red-500">${message}</span>`;
+            if (cardElement) cardElement.classList.remove('hidden');
+            if (outputElement.id === 'translation-output') {
+                reverseTranslationCard.classList.add('hidden');
+            }
+        }
+
+        /**
+         * Process a file (from upload or paste)
+         */
+        function processFile(file) {
+            if (!file) return;
+
+            // Reset viewer
+            imagePreview.classList.add('hidden');
+            pdfPreviewContainer.classList.add('hidden');
+            viewerPlaceholder.classList.add('hidden');
+            currentImageBase64 = null;
+            currentImageMimeType = null;
+            imageTranslateButton.disabled = true;
+            imageTranslateButton.classList.add('bg-gray-300', 'text-gray-500', 'cursor-not-allowed', 'dark:bg-gray-700', 'dark:text-gray-400');
+            imageTranslateButton.classList.remove('bg-purple-600', 'text-white', 'hover:bg-purple-700', 'dark:bg-purple-700', 'dark:hover:bg-purple-800');
+
+            const fileType = file.type;
+
+            if (fileType.startsWith('image/')) {
+                // Handle Image
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const imageUrl = e.target.result;
+                    imagePreview.src = imageUrl;
+                    imagePreview.classList.remove('hidden');
+
+                    currentImageBase64 = imageUrl.split(',')[1];
+                    currentImageMimeType = file.type;
+                    
+                    if (fileType === 'image/jpeg' || fileType === 'image/png') {
+                        imageTranslateButton.disabled = false;
+                        imageTranslateButton.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed', 'dark:bg-gray-700', 'dark:text-gray-400');
+                        imageTranslateButton.classList.add('bg-purple-600', 'text-white', 'hover:bg-purple-700', 'dark:bg-purple-700', 'dark:hover:bg-purple-800');
+                    }
+                };
+                reader.readAsDataURL(file);
+
+            } else if (fileType === 'application/pdf') {
+                // Handle PDF
+                const fileURL = URL.createObjectURL(file);
+                pdfPreview.src = fileURL;
+                pdfPreviewContainer.classList.remove('hidden');
+            } else {
+                viewerPlaceholder.classList.remove('hidden');
+            }
+        }
+        
+        /**
+         * Handle file upload input
+         */
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            processFile(file);
+        }
+
+        /**
+         * Handle paste event for images
+         */
+        function handlePaste(event) {
+            const activeEl = document.activeElement;
+            if (activeEl === sourceText || activeEl === apiKeyInput || activeEl === contextInput || activeEl === searchInput || activeEl === proofreadInput) {
+                return; 
+            }
+
+            const items = event.clipboardData.files;
+            if (items.length > 0) {
+                const file = items[0];
+                if (file.type.startsWith('image/')) {
+                    event.preventDefault(); 
+                    processFile(file);
+                }
+            }
+        }
+
+
+        /**
+         * Search specialized dictionary and update UI
+         */
+        function searchDictionary() {
+            const query = sourceText.value.trim().toLowerCase();
+            if (query === "") {
+                dictionaryResults.innerHTML = '';
+                noResults.classList.add('hidden');
+                return;
+            }
+
+            let found = false;
+            dictionaryResults.innerHTML = '';
+
+            dictionaryEntries.forEach(([key, value]) => {
+                if (key.toLowerCase().includes(query) || value.toLowerCase().includes(query)) {
+                    found = true;
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'p-3 bg-gray-50 dark:bg-gray-700 rounded-md shadow-sm';
+                    
+                    const japaneseEl = document.createElement('p');
+                    japaneseEl.className = 'font-semibold text-blue-600 dark:text-blue-400';
+                    japaneseEl.textContent = key;
+                    
+                    const vietnameseEl = document.createElement('p');
+                    vietnameseEl.className = 'text-gray-700 dark:text-gray-300';
+                    vietnameseEl.textContent = value;
+                    
+                    resultItem.appendChild(japaneseEl);
+                    resultItem.appendChild(vietnameseEl);
+                    dictionaryResults.appendChild(resultItem);
+                }
+            });
+
+            noResults.classList.toggle('hidden', found);
+        }
+
+        /**
+         * Call Gemini API (Refactored to return sources)
+         */
+        async function callGeminiAPI(payload, apiKey) {
+            const model = modelSelect.value;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+            try {
+                let response;
+                let delay = 1000;
+                for (let i = 0; i < 5; i++) {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) break;
+                    if (response.status === 429) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2;
+                    } else {
+                        let errorBody = null;
+                        try {
+                            errorBody = await response.json();
+                        } catch (e) { /* Ignore */ }
+                        
+                        if (errorBody && errorBody.error && errorBody.error.message) {
+                             throw new Error(errorBody.error.message);
+                        } else {
+                            throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
+                        }
+                    }
+                }
+                
+                if (!response.ok) {
+                    let errorBody = null;
+                    try {
+                        errorBody = await response.json();
+                    } catch (e) { /* Ignore */ }
+                    if (errorBody && errorBody.error && errorBody.error.message) {
+                         throw new Error(`Failed after retries: ${errorBody.error.message}`);
+                    } else {
+                        throw new Error(`Failed to fetch after retries. Status: ${response.status} ${response.statusText}`);
+                    }
+                }
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0].text) {
+                    const candidate = result.candidates[0];
+                    const text = candidate.content.parts[0].text;
+                    let sources = [];
+
+                    if (candidate.groundingMetadata && candidate.groundingMetadata.groundingAttributions) {
+                        sources = candidate.groundingMetadata.groundingAttributions
+                            .map(attr => ({
+                                uri: attr.web?.uri,
+                                title: attr.web?.title,
+                            }))
+                            .filter(source => source.uri && source.title);
+                    }
+
+                    return { success: true, text: text, sources: sources };
+                } else {
+                    console.error('Unexpected API response structure:', result);
+                    let errorMessage = translations[currentLang].errorFetch;
+                    if (result.promptFeedback) {
+                        console.error('Prompt Feedback:', result.promptFeedback);
+                        errorMessage = `${errorMessage} (Block Reason: ${result.promptFeedback.blockReason})`;
+                    }
+                    return { success: false, error: errorMessage, sources: [] };
+                }
+            } catch (error) {
+                console.error('Error calling Gemini API:', error);
+                return { success: false, error: error.message, sources: [] };
+            }
+        }
+
+        /**
+         * Handle text translation (Bidirectional)
+         */
+        async function handleTextTranslate() {
+            const textToTranslate = sourceText.value;
+            if (!textToTranslate) return;
+
+            const apiKey = apiKeyInput.value;
+            if (!apiKey) {
+                showError(translations[currentLang].errorApiKey);
+                return;
+            }
+
+            reverseTranslationCard.classList.add('hidden');
+            reverseTranslationOutput.textContent = '';
+
+            translateButton.disabled = true;
+            translateLoader.classList.remove('hidden');
+            translateButton.querySelector('span').textContent = translations[currentLang].translating;
+
+            try {
+                // *** UPDATED PROMPT (Professional, Natural) ***
+                const prompt = `You are a professional translator. Your goal is to translate text between Japanese and Vietnamese.
+- Use a **clear, natural, and professional tone** suitable for a work environment. (Dịch với văn phong chuyên nghiệp, tự nhiên, rõ ràng, dùng trong công việc).
+- Avoid overly formal, "sycophantic" language.
+- Avoid overly casual, "too close" language.
+- Detect the language. If Japanese, translate to Vietnamese. If Vietnamese, translate to Japanese.
+- IMPORTANT: Provide ONLY the translated text. Do not add any extra explanations, analysis, or greetings.
+
+Text to translate:
+"""
+${textToTranslate}
+"""
+
+Translation:
+`;
+                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+                const result = await callGeminiAPI(payload, apiKey); 
+
+                if (result.success) {
+                    translationOutput.textContent = result.text;
+                    aiTranslationCard.classList.remove('hidden');
+                } else {
+                    showError(result.error);
+                }
+            } finally {
+                translateButton.disabled = false;
+                translateLoader.classList.add('hidden');
+                translateButton.querySelector('span').textContent = translations[currentLang].translateButton;
+            }
+        }
+
+        /**
+         * Handle Reverse Translation
+         */
+        async function handleReverseTranslate() {
+            const textToReverseTranslate = translationOutput.textContent;
+            if (!textToReverseTranslate) return;
+
+            const apiKey = apiKeyInput.value;
+            if (!apiKey) {
+                showError(translations[currentLang].errorApiKey, reverseTranslationOutput, reverseTranslationCard);
+                return;
+            }
+
+            reverseTranslateButton.disabled = true;
+            reverseLoader.classList.remove('hidden');
+            reverseTranslateButton.querySelector('span').textContent = translations[currentLang].reversing;
+
+            try {
+                // *** UPDATED PROMPT (Professional, Natural) ***
+                const prompt = `You are a professional translator. Your goal is to translate text between Japanese and Vietnamese.
+- Use a **clear, natural, and professional tone** suitable for a work environment. (Dịch với văn phong chuyên nghiệp, tự nhiên, rõ ràng, dùng trong công việc).
+- Avoid overly formal or overly casual language.
+- Detect the language. If Japanese, translate to Vietnamese. If Vietnamese, translate to Japanese.
+- IMPORTANT: Provide ONLY the translated text. Do not add any extra explanations.
+
+Text to translate:
+"""
+${textToReverseTranslate}
+"""
+
+Translation:
+`;
+                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+                const result = await callGeminiAPI(payload, apiKey);
+
+                if (result.success) {
+                    reverseTranslationOutput.textContent = result.text;
+                    reverseTranslationCard.classList.remove('hidden');
+                } else {
+                    showError(result.error, reverseTranslationOutput, reverseTranslationCard);
+                }
+            } finally {
+                reverseTranslateButton.disabled = false;
+                reverseLoader.classList.add('hidden');
+                reverseTranslateButton.querySelector('span').textContent = translations[currentLang].reverseTranslateButton;
+            }
+        }
+
+        /**
+         * Handle image-based translation (OCR)
+         */
+        async function handleImageTranslate() {
+            if (!currentImageBase64 || !currentImageMimeType) {
+                showError(translations[currentLang].errorImageFormat);
+                return;
+            }
+
+            const apiKey = apiKeyInput.value;
+            if (!apiKey) {
+                showError(translations[currentLang].errorApiKey);
+                return;
+            }
+            
+            reverseTranslationCard.classList.add('hidden');
+            reverseTranslationOutput.textContent = '';
+
+            imageTranslateButton.disabled = true;
+            imageLoader.classList.remove('hidden');
+            imageTranslateButton.querySelector('span').textContent = translations[currentLang].translatingImage;
+
+            try {
+                const prompt = `You are a high-accuracy OCR (Optical Character Recognition) expert.
+Your task is to meticulously extract all Japanese text from this image.
+- Be very thorough. Do not miss any text.
+- Preserve line breaks if possible.
+- Output ONLY the extracted Japanese text. Nothing else.
+
+Extracted Japanese Text:
+`;
+                
+                const parts = [{ text: prompt }, { inlineData: { mimeType: currentImageMimeType, data: currentImageBase64 } }];
+                const payload = { contents: [{ role: "user", parts: parts }] };
+                const result = await callGeminiAPI(payload, apiKey);
+
+                if (result.success) {
+                    sourceText.value = result.text;
+                    searchDictionary();
+                } else {
+                    showError(result.error);
+                }
+            } finally {
+                imageTranslateButton.disabled = false;
+                imageLoader.classList.add('hidden');
+                imageTranslateButton.querySelector('span').textContent = translations[currentLang].translateImageButton;
+            }
+        }
+
+
+        /**
+         * START: Tab 2 Functions
+         */
+        function appendChatMessage(text, sender, isError = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('w-full', 'flex', 'mb-3');
+            
+            const bubble = document.createElement('div');
+            bubble.classList.add('p-3', 'rounded-lg', 'max-w-[80%]', 'whitespace-pre-wrap', 'break-words');
+            bubble.textContent = text;
+
+            if (sender === 'user') {
+                msgDiv.classList.add('justify-end');
+                bubble.classList.add('bg-blue-600', 'text-white');
+            } else if (sender === 'model') {
+                msgDiv.classList.add('justify-start');
+                bubble.classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-900', 'dark:text-gray-100');
+            } else { // 'system' or 'loader'
+                msgDiv.classList.add('justify-center');
+                bubble.classList.add('text-sm', 'text-gray-500', 'dark:text-gray-400', 'italic', 'bg-transparent');
+                if (isError) bubble.classList.add('text-red-500', 'dark:text-red-400', 'not-italic', 'font-medium');
+            }
+            
+            msgDiv.appendChild(bubble);
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to bottom
+        }
+
+        async function handleContextSend() {
+            if (isContextTranslating) return;
+            const text = contextInput.value.trim();
+            if (!text) return;
+
+            const apiKey = apiKeyInput.value;
+            if (!apiKey) {
+                appendChatMessage(translations[currentLang].errorApiKey, 'system', true);
+                return;
+            }
+
+            isContextTranslating = true;
+            contextInput.value = '';
+            contextInput.disabled = true;
+            contextSendButton.disabled = true;
+
+            appendChatMessage(text, 'user');
+            contextChatHistory.push({ role: 'user', parts: [{ text: text }] });
+
+            appendChatMessage(translations[currentLang].contextThinking, 'model');
+            const loaderMessage = chatMessages.lastChild.querySelector('div');
+
+            // *** UPDATED PROMPT (Professional, Natural) ***
+            const systemInstruction = {
+                parts: [{ text: `You are an expert Japanese-Vietnamese translator in a professional conversation.
+- Use a **clear, natural, and professional tone** suitable for work.
+- Use the chat history for context.
+- The last message is the one you need to translate. Detect its language (JP or VI) and translate it to the other.
+- CRITICAL: Respond *only* with the raw translation. No extra chat, no explanations.` }]
+            };
+            
+            const payload = { 
+                contents: contextChatHistory,
+                systemInstruction: systemInstruction
+            };
+            const result = await callGeminiAPI(payload, apiKey);
+
+            if (result.success) {
+                loaderMessage.textContent = result.text;
+                contextChatHistory.push({ role: 'model', parts: [{ text: result.text }] });
+            } else {
+                loaderMessage.textContent = result.error;
+                loaderMessage.classList.add('text-red-500', 'dark:text-red-400', 'not-italic', 'font-medium');
+                contextChatHistory.pop();
+            }
+
+            isContextTranslating = false;
+            contextInput.disabled = false;
+            contextSendButton.disabled = false;
+            contextInput.focus();
+        }
+        /**
+         * END: Tab 2 Functions
+         */
+
+
+        /**
+         * START: Tab 3 Functions
+         */
+        async function handleInfoSearch() {
+            const query = searchInput.value.trim();
+            if (!query) return;
+
+            const apiKey = apiKeyInput.value;
+            if (!apiKey) {
+                searchResultsOutput.innerHTML = `<span class="text-red-500">${translations[currentLang].errorApiKey}</span>`;
+                searchSourcesOutput.innerHTML = '';
+                searchResultsWrapper.classList.remove('hidden');
+                return;
+            }
+
+            searchButton.disabled = true;
+            searchLoader.classList.remove('hidden');
+            searchButton.querySelector('span').textContent = translations[currentLang].searching;
+            searchResultsWrapper.classList.add('hidden');
+            searchResultsOutput.textContent = '';
+            searchSourcesOutput.innerHTML = '';
+
+            try {
+                // *** UPDATED PROMPT (Professional, Natural) ***
+                const systemInstruction = {
+                    parts: [{ text: `You are a helpful research assistant.
+- Answer the user's question directly using the search results.
+- Use a **clear, natural, and professional tone**.
+- Get straight to the point. Do not add any introductory phrases like "Based on the search results...". Just provide the answer.` }]
+                };
+                
+                const contents = [{ role: "user", parts: [{ text: query }] }];
+
+                const payload = {
+                    contents: contents,
+                    systemInstruction: systemInstruction,
+                    tools: [{ "google_search": {} }]
+                };
+
+                const result = await callGeminiAPI(payload, apiKey);
+
+                if (result.success) {
+                    searchResultsOutput.textContent = result.text;
+                    
+                    if (result.sources && result.sources.length > 0) {
+                        result.sources.forEach(source => {
+                            const sourceLink = document.createElement('a');
+                            sourceLink.href = source.uri;
+                            sourceLink.textContent = source.title;
+                            sourceLink.target = '_blank';
+                            sourceLink.rel = 'noopener noreferrer';
+                            sourceLink.className = 'block text-sm text-blue-600 hover:underline dark:text-blue-400 truncate';
+                            searchSourcesOutput.appendChild(sourceLink);
+                        });
+                    } else {
+                        searchSourcesOutput.innerHTML = `<span class="text-sm text-gray-500 dark:text-gray-400">${translations[currentLang].errorSearch}</span>`;
+                    }
+
+                } else {
+                    searchResultsOutput.innerHTML = `<span class="text-red-500">${result.error}</span>`;
+                    searchSourcesOutput.innerHTML = '';
+                }
+
+                searchResultsWrapper.classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Error during search:', error);
+                searchResultsOutput.innerHTML = `<span class="text-red-500">${error.message}</span>`;
+                searchSourcesOutput.innerHTML = '';
+                searchResultsWrapper.classList.remove('hidden');
+            } finally {
+                searchButton.disabled = false;
+                searchLoader.classList.add('hidden');
+                searchButton.querySelector('span').textContent = translations[currentLang].searchButton;
+            }
+        }
+        /**
+         * END: Tab 3 Functions
+         */
+
+        /**
+         * START: Tab 4 Functions
+         */
+        async function handleProofread() {
+            const textToProofread = proofreadInput.value.trim();
+            if (!textToProofread) return;
+
+            const apiKey = apiKeyInput.value;
+            if (!apiKey) {
+                showError(translations[currentLang].errorApiKey, proofreadOutput, proofreadResultCard);
+                proofreadTranslatedOutput.innerHTML = '';
+                return;
+            }
+
+            proofreadButton.disabled = true;
+            proofreadLoader.classList.remove('hidden');
+            proofreadButton.querySelector('span').textContent = translations[currentLang].proofreading;
+            proofreadResultCard.classList.remove('hidden');
+            proofreadOutput.textContent = '...';
+            proofreadTranslatedOutput.textContent = '...';
+
+            let improvedText = '';
+
+            try {
+                // --- Step 1: Proofread and Refine ---
+                // *** UPDATED PROMPT (FIX ERRORS, KEEP STYLE) ***
+                const proofreadPrompt = `You are an expert editor for Vietnamese and Japanese. The user will provide text that may contain errors. Your job is to:
+1. Detect the language (Vietnamese or Japanese).
+2. **Fix all grammatical, spelling, and vocabulary errors.**
+3. **DO NOT change the original writing style.** If the original text is casual, the corrected text should be casual. If it's formal, keep it formal. Do not rewrite it to be more polite or "better" if it's already grammatically correct.
+4. Understand and correctly interpret Vietnamese regional vocabulary (từ vựng vùng miền).
+5. CRITICAL RULE: Respond ONLY with the corrected text. Do not add any commentary, explanations, or greetings.
+
+Text to fix:
+"""
+${textToProofread}
+"""
+
+Fixed Text:
+`;
+                const payload1 = { contents: [{ role: "user", parts: [{ text: proofreadPrompt }] }] };
+                const result1 = await callGeminiAPI(payload1, apiKey);
+
+                if (!result1.success) {
+                    throw new Error(result1.error);
+                }
+                
+                improvedText = result1.text;
+                proofreadOutput.textContent = improvedText;
+
+                // --- Step 2: Translate the *fixed* text ---
+                // *** UPDATED PROMPT (Professional, Natural) ***
+                const translatePrompt = `You are a professional translator. Translate the following text between Japanese and Vietnamese.
+- Use a **clear, natural, and professional tone** suitable for work.
+- If it's Japanese, translate to Vietnamese.
+- If it's Vietnamese, translate to Japanese.
+- IMPORTANT: Just give the translation. No extra text, no explanations.
+
+Text to translate:
+"""
+${improvedText}
+"""
+
+Translation:
+`;
+                const payload2 = { contents: [{ role: "user", parts: [{ text: translatePrompt }] }] };
+                const result2 = await callGeminiAPI(payload2, apiKey);
+
+                if (result2.success) {
+                    proofreadTranslatedOutput.textContent = result2.text;
+                } else {
+                    proofreadTranslatedOutput.innerHTML = `<span class="text-red-500">${result2.error}</span>`;
+                }
+
+            } catch (error) {
+                console.error('Error in proofread process:', error);
+                showError(error.message, proofreadOutput, proofreadResultCard);
+                proofreadTranslatedOutput.textContent = '';
+            } finally {
+                proofreadButton.disabled = false;
+                proofreadLoader.classList.add('hidden');
+                proofreadButton.querySelector('span').textContent = translations[currentLang].proofreadButton;
+            }
+        }
+        /**
+         * END: Tab 4 Functions
+         */
+
+
+        /**
+         * Toggle language
+         */
+        function toggleLanguage() {
+            const newLang = currentLang === 'ja' ? 'vi' : 'ja';
+            updateLanguage(newLang);
+        }
+
+        /**
+         * Generic Copy Button Setup
+         */
+        function setupCopyButton(buttonId, outputId, copyKey, copiedKey) {
+            const btn = document.getElementById(buttonId);
+            const output = document.getElementById(outputId);
+            
+            if (!btn || !output) {
+                console.warn(`Could not find button or output for copy: ${buttonId}, ${outputId}`);
+                return;
+            }
+
+            btn.addEventListener('click', () => {
+                const textToCopy = output.textContent;
+                if (!textToCopy) return;
+
+                const tempTextarea = document.createElement('textarea');
+                tempTextarea.value = textToCopy;
+                tempTextarea.style.position = 'absolute';
+                tempTextarea.style.left = '-9999px';
+                document.body.appendChild(tempTextarea);
+                tempTextarea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    btn.textContent = translations[currentLang][copiedKey];
+                    btn.dataset.key = copiedKey;
+                    
+                    setTimeout(() => {
+                        btn.textContent = translations[currentLang][copyKey];
+                        btn.dataset.key = copyKey;
+                    }, 2000);
+
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                }
+                
+                document.body.removeChild(tempTextarea);
+            });
+        }
+
+
+        /**
+         * Handle Voice Input (Toggle) - FOR TAB 1
+         */
+        function handleVoiceInput() {
+            if (!recognition) return;
+            if (isListening) {
+                recognition.stop();
+            } else {
+                try {
+                    if (isListeningTab2) recognitionTab2.stop();
+                    if (isListeningTab4) recognitionTab4.stop();
+                    recognition.start();
+                    isListening = true;
+                    voiceInputButton.title = translations[currentLang].voiceListening;
+                    voiceInputButton.classList.add('text-blue-500', 'animate-pulse');
+                } catch (e) {
+                    console.error("Error starting recognition (Tab 1): ", e);
+                    isListening = false;
+                }
+            }
+        }
+
+        /**
+         * Handle Voice Input (Toggle) - FOR TAB 2
+         */
+        function handleContextVoiceInput() {
+            if (!recognitionTab2) return;
+            if (isListeningTab2) {
+                recognitionTab2.stop();
+            } else {
+                try {
+                    if (isListening) recognition.stop();
+                    if (isListeningTab4) recognitionTab4.stop();
+                    recognitionTab2.start();
+                    isListeningTab2 = true;
+                    contextVoiceButton.title = translations[currentLang].contextVoiceListening;
+                    contextVoiceButton.classList.add('text-blue-500', 'animate-pulse', 'dark:text-blue-400');
+                    contextVoiceButton.classList.remove('text-gray-600', 'dark:text-gray-300');
+                } catch (e) {
+                    console.error("Error starting recognition (Tab 2): ", e);
+                    isListeningTab2 = false;
+                }
+            }
+        }
+
+        /**
+         * Handle Voice Input (Toggle) - FOR TAB 4
+         */
+        function handleProofreadVoiceInput() {
+            if (!recognitionTab4) return;
+            if (isListeningTab4) {
+                recognitionTab4.stop();
+            } else {
+                try {
+                    if (isListening) recognition.stop();
+                    if (isListeningTab2) recognitionTab2.stop();
+                    recognitionTab4.start();
+                    isListeningTab4 = true;
+                    proofreadVoiceButton.title = translations[currentLang].proofreadVoiceListening;
+                    proofreadVoiceButton.classList.add('text-blue-500', 'animate-pulse');
+                } catch (e) {
+                    console.error("Error starting recognition (Tab 4): ", e);
+                    isListeningTab4 = false;
+                }
+            }
+        }
+
+
+        // --- EVENT LISTENERS ---
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- Tải API Key từ LocalStorage ---
+            const savedApiKey = localStorage.getItem('geminiApiKey');
+            if (savedApiKey) {
+                apiKeyInput.value = savedApiKey;
+            }
+
+            // --- Event listener for Save API Key button ---
+            saveApiKeyButton.addEventListener('click', () => {
+                const apiKeyToSave = apiKeyInput.value;
+                localStorage.setItem('geminiApiKey', apiKeyToSave);
+                
+                const buttonSpan = saveApiKeyButton.querySelector('span');
+                const originalTextKey = "saveApiKeyButton";
+                const successTextKey = "saveApiKeySuccess";
+                
+                buttonSpan.textContent = translations[currentLang][successTextKey];
+                saveApiKeyButton.dataset.key = successTextKey; // Store key on button
+                saveApiKeyButton.disabled = true;
+                
+                setTimeout(() => {
+                    buttonSpan.textContent = translations[currentLang][originalTextKey];
+                    saveApiKeyButton.dataset.key = originalTextKey; // Restore key
+                    saveApiKeyButton.disabled = false;
+                }, 2000);
+            });
+            
+            // --- Setup Copy Buttons ---
+            setupCopyButton('copy-button', 'translation-output', 'copyButton', 'copied');
+            setupCopyButton('proofread-copy-button', 'proofread-output', 'copyButton', 'copied');
+            setupCopyButton('proofread-translated-copy-button', 'proofread-translated-output', 'copyButton', 'copied');
+
+            // Tab 1
+            fileUpload.addEventListener('change', handleFileUpload);
+            imageTranslateButton.addEventListener('click', handleImageTranslate);
+            sourceText.addEventListener('input', searchDictionary);
+            translateButton.addEventListener('click', handleTextTranslate);
+            langToggleButton.addEventListener('click', toggleLanguage);
+            reverseTranslateButton.addEventListener('click', handleReverseTranslate);
+            window.addEventListener('paste', handlePaste);
+            if (voiceInputButton) {
+                voiceInputButton.addEventListener('click', handleVoiceInput);
+            }
+
+            // Tabs
+            tabButtons.forEach(button => {
+                button.addEventListener('click', handleTabClick);
+            });
+
+            // Tab 2
+            contextSendButton.addEventListener('click', handleContextSend);
+            if (contextVoiceButton) {
+                contextVoiceButton.addEventListener('click', handleContextVoiceInput);
+            }
+            contextInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleContextSend();
+                }
+            });
+
+            // Tab 3
+            searchButton.addEventListener('click', handleInfoSearch);
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleInfoSearch();
+                }
+            });
+
+            // Tab 4 Listeners
+            if (proofreadButton) {
+                proofreadButton.addEventListener('click', handleProofread);
+            }
+            if (proofreadVoiceButton) {
+                proofreadVoiceButton.addEventListener('click', handleProofreadVoiceInput);
+            }
+
+
+            // --- INITIALIZATION ---
+            updateLanguage(currentLang); // Set default language (ja) on load
+            styleActiveTab(tabBtn1); // Set Tab 1 as active
+
+            // Hide voice button if unsupported
+            if (!SpeechRecognition) {
+                if (voiceInputButton) voiceInputButton.style.display = 'none';
+                if (contextVoiceButton) contextVoiceButton.style.display = 'none';
+                if (proofreadVoiceButton) proofreadVoiceButton.style.display = 'none';
+            }
+
+        });
+    </script>
+</body>
+</html>
