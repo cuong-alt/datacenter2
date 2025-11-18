@@ -149,6 +149,16 @@
                                 <span data-key="translateImageButton">画像から翻訳 (AI)</span>
                                 <div id="image-loader" class="loader hidden"></div>
                             </button>
+
+                            <!-- *** NEW: Clear Image Button *** -->
+                            <button id="clear-image-button"
+                                class="w-full py-2 px-4 rounded-md font-semibold text-sm bg-red-600 text-white hover:bg-red-700
+                                dark:bg-red-700 dark:hover:bg-red-800
+                                flex items-center justify-center space-x-2 hidden">
+                                <span data-key="clearImageButton">Xóa ảnh</span>
+                            </button>
+                            <!-- *** END NEW BUTTON *** -->
+
                         </div>
 
                         <div id="document-viewer" class="flex-grow p-4 border-t border-gray-200 dark:border-gray-700 overflow-auto custom-scrollbar">
@@ -203,11 +213,7 @@
                                     </div>
                                     <div id="translation-output" class="mt-1 w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md min-h-[100px] whitespace-pre-wrap"></div>
 
-                                    <!-- Reverse Translate Button -->
-                                    <button id="reverse-translate-button" class="w-full flex justify-center items-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-2">
-                                        <span data-key="reverseTranslateButton">Dịch ngược lại</span>
-                                        <div id="reverse-loader" class="loader hidden ml-2"></div>
-                                    </button>
+                                    <!-- *** REVERSE TRANSLATE BUTTON REMOVED *** -->
 
                                     <!-- Reverse Translation Result -->
                                     <div id="reverse-translation-card" class="hidden mt-3">
@@ -368,6 +374,7 @@
                 "sourceTitle": "Tài liệu gốc",
                 "uploadPlaceholder": "Upload tài liệu gốc... (hoặc dán ảnh)",
                 "translateImageButton": "Dịch từ Ảnh (AI)",
+                "clearImageButton": "Xóa ảnh", // *** NEW ***
                 "translationTitle": "Không gian dịch thuật",
                 "apiKeyLabel": "API Key Gemini",
                 "getApiKey": "?", // Changed to ?
@@ -380,8 +387,8 @@
                 "aiResultTitle": "Kết quả dịch (AI)",
                 "copyButton": "Sao chép",
                 "copied": "Đã sao chép!",
-                "reverseTranslateButton": "Dịch ngược lại",
-                "reverseResultTitle": "Kết quả dịch ngược (đối chiếu)",
+                // "reverseTranslateButton": "Dịch ngược lại", // *** REMOVED ***
+                "reverseResultTitle": "Kết quả dịch ngược lại", // *** UPDATED ***
                 "reversing": "Đang dịch ngược...",
                 "dictionaryTitle": "Tra cứu từ điển (Nhật/Việt)",
                 "dictionaryNoResults": "Không tìm thấy thuật ngữ trong từ điển chuyên ngành.",
@@ -426,6 +433,7 @@
                 "sourceTitle": "原文ドキュメント",
                 "uploadPlaceholder": "原文ドキュメントをアップロード... (または画像を貼り付け)",
                 "translateImageButton": "画像から翻訳 (AI)",
+                "clearImageButton": "画像をクリア", // *** NEW ***
                 "translationTitle": "翻訳ワークスペース",
                 "apiKeyLabel": "Gemini API キー",
                 "getApiKey": "?", // Changed to ?
@@ -438,8 +446,8 @@
                 "aiResultTitle": "翻訳結果 (AI)",
                 "copyButton": "コピー",
                 "copied": "コピーしました!",
-                "reverseTranslateButton": "逆翻訳", 
-                "reverseResultTitle": "逆翻訳の結果（照合用）",
+                // "reverseTranslateButton": "逆翻訳", // *** REMOVED ***
+                "reverseResultTitle": "逆翻訳の結果", // *** UPDATED ***
                 "reversing": "逆翻訳中...",
                 "dictionaryTitle": "辞書検索（日/越）",
                 "dictionaryNoResults": "専門用語辞書に該当する用語が見つかりません。",
@@ -599,6 +607,7 @@
         const fileUpload = document.getElementById('file-upload');
         const imageTranslateButton = document.getElementById('image-translate-button');
         const imageLoader = document.getElementById('image-loader');
+        const clearImageButton = document.getElementById('clear-image-button'); // *** NEW ***
         const documentViewer = document.getElementById('document-viewer');
         const viewerPlaceholder = document.getElementById('viewer-placeholder');
         const imagePreview = document.getElementById('image-preview');
@@ -618,8 +627,8 @@
         const copyButton = document.getElementById('copy-button');
         const voiceInputButton = document.getElementById('voice-input-button');
         
-        const reverseTranslateButton = document.getElementById('reverse-translate-button');
-        const reverseLoader = document.getElementById('reverse-loader');
+        // *** REMOVED reverseTranslateButton and reverseLoader ***
+        
         const reverseTranslationCard = document.getElementById('reverse-translation-card');
         const reverseTranslationOutput = document.getElementById('reverse-translation-output');
         
@@ -834,20 +843,47 @@
         }
 
         /**
+         * *** NEW: Clear file viewer and reset state ***
+         */
+        function clearFileViewer() {
+            // Reset viewer
+            imagePreview.classList.add('hidden');
+            imagePreview.src = '';
+            
+            // Revoke old PDF object URL to prevent memory leaks
+            if (pdfPreview.src && pdfPreview.src.startsWith('blob:')) {
+                URL.revokeObjectURL(pdfPreview.src);
+            }
+            pdfPreview.src = '';
+            pdfPreviewContainer.classList.add('hidden');
+            
+            viewerPlaceholder.classList.remove('hidden');
+
+            // Reset state
+            currentImageBase64 = null;
+            currentImageMimeType = null;
+            
+            // Reset file input
+            fileUpload.value = null;
+
+            // Reset buttons
+            imageTranslateButton.disabled = true;
+            imageTranslateButton.classList.add('bg-gray-300', 'text-gray-500', 'cursor-not-allowed', 'dark:bg-gray-700', 'dark:text-gray-400');
+            imageTranslateButton.classList.remove('bg-purple-600', 'text-white', 'hover:bg-purple-700', 'dark:bg-purple-700', 'dark:hover:bg-purple-800');
+            
+            clearImageButton.classList.add('hidden');
+        }
+
+        /**
          * Process a file (from upload or paste)
          */
         function processFile(file) {
             if (!file) return;
 
-            // Reset viewer
-            imagePreview.classList.add('hidden');
-            pdfPreviewContainer.classList.add('hidden');
-            viewerPlaceholder.classList.add('hidden');
-            currentImageBase64 = null;
-            currentImageMimeType = null;
-            imageTranslateButton.disabled = true;
-            imageTranslateButton.classList.add('bg-gray-300', 'text-gray-500', 'cursor-not-allowed', 'dark:bg-gray-700', 'dark:text-gray-400');
-            imageTranslateButton.classList.remove('bg-purple-600', 'text-white', 'hover:bg-purple-700', 'dark:bg-purple-700', 'dark:hover:bg-purple-800');
+            clearFileViewer(); // Clear previous file and state
+
+            viewerPlaceholder.classList.add('hidden'); // Hide placeholder
+            clearImageButton.classList.remove('hidden'); // Show clear button
 
             const fileType = file.type;
 
@@ -876,7 +912,8 @@
                 pdfPreview.src = fileURL;
                 pdfPreviewContainer.classList.remove('hidden');
             } else {
-                viewerPlaceholder.classList.remove('hidden');
+                viewerPlaceholder.classList.remove('hidden'); // Show placeholder again if format is wrong
+                clearImageButton.classList.add('hidden'); // Hide clear button
             }
         }
         
@@ -1037,7 +1074,8 @@
                 return;
             }
 
-            reverseTranslationCard.classList.add('hidden');
+            // *** CHANGED: Do NOT hide reverse translation card ***
+            // reverseTranslationCard.classList.add('hidden');
             reverseTranslationOutput.textContent = '';
 
             translateButton.disabled = true;
@@ -1066,6 +1104,10 @@ Translation:
                 if (result.success) {
                     translationOutput.textContent = result.text;
                     aiTranslationCard.classList.remove('hidden');
+                    
+                    // *** NEW: Automatically call reverse translate ***
+                    handleReverseTranslate(); 
+
                 } else {
                     showError(result.error);
                 }
@@ -1089,9 +1131,14 @@ Translation:
                 return;
             }
 
-            reverseTranslateButton.disabled = true;
-            reverseLoader.classList.remove('hidden');
-            reverseTranslateButton.querySelector('span').textContent = translations[currentLang].reversing;
+            // *** UPDATED: Show card and loading text ***
+            reverseTranslationCard.classList.remove('hidden');
+            reverseTranslationOutput.textContent = translations[currentLang].reversing;
+            
+            // *** REMOVED: Button-related UI ***
+            // reverseTranslateButton.disabled = true;
+            // reverseLoader.classList.remove('hidden');
+            // reverseTranslateButton.querySelector('span').textContent = translations[currentLang].reversing;
 
             try {
                 // *** UPDATED PROMPT (Professional, Natural) ***
@@ -1118,9 +1165,10 @@ Translation:
                     showError(result.error, reverseTranslationOutput, reverseTranslationCard);
                 }
             } finally {
-                reverseTranslateButton.disabled = false;
-                reverseLoader.classList.add('hidden');
-                reverseTranslateButton.querySelector('span').textContent = translations[currentLang].reverseTranslateButton;
+                // *** REMOVED: Button-related UI ***
+                // reverseTranslateButton.disabled = false;
+                // reverseLoader.classList.add('hidden');
+                // reverseTranslateButton.querySelector('span').textContent = translations[currentLang].reverseTranslateButton;
             }
         }
 
@@ -1139,7 +1187,8 @@ Translation:
                 return;
             }
             
-            reverseTranslationCard.classList.add('hidden');
+            // *** CHANGED: Do NOT hide reverse translation card ***
+            // reverseTranslationCard.classList.add('hidden');
             reverseTranslationOutput.textContent = '';
 
             imageTranslateButton.disabled = true;
@@ -1582,10 +1631,11 @@ Translation:
             // Tab 1
             fileUpload.addEventListener('change', handleFileUpload);
             imageTranslateButton.addEventListener('click', handleImageTranslate);
+            clearImageButton.addEventListener('click', clearFileViewer); // *** NEW ***
             sourceText.addEventListener('input', searchDictionary);
             translateButton.addEventListener('click', handleTextTranslate);
             langToggleButton.addEventListener('click', toggleLanguage);
-            reverseTranslateButton.addEventListener('click', handleReverseTranslate);
+            // reverseTranslateButton.addEventListener('click', handleReverseTranslate); // *** REMOVED ***
             window.addEventListener('paste', handlePaste);
             if (voiceInputButton) {
                 voiceInputButton.addEventListener('click', handleVoiceInput);
