@@ -567,7 +567,7 @@
             "手首の影を少し薄くなじませる": "làm đều làm mờ bóng đen ở cổ tay",
             "口の中の色を少し戻": "trả lại 1 chút màu sắc ở trong miệng",
             "向かって右赤部分の影を馴染ませる": "làm đều bóng đen ở phần khoanh đỏ ở bên phải màn hình",
-            "向かって右側目の上の髪を消す": "xóa tóc ở phía trên của mắt bên phải màn hình",
+            "向かって右側目の上の髪を消す": "xóa tóc ở phía trênの mắt bên phải màn hình",
             "唇のテカリを抑える": "giảm bóng nhờn ở môi",
             "口の中赤部分を少し暗くする": "làm tối 1 chút phần khoanh đỏ ở trong miệng",
             "赤部分のテカリを抑える": "giảm bóng nhờn ở phần khoanh đỏ",
@@ -1102,11 +1102,15 @@ Translation:
                 const result = await callGeminiAPI(payload, apiKey); 
 
                 if (result.success) {
-                    translationOutput.textContent = result.text;
+                    // *** NEW: Format Output with Source + Arrow + Target ***
+                    const translationOnly = result.text.trim();
+                    const formattedOutput = `${textToTranslate.trim()}\n↓\n${translationOnly}`;
+                    
+                    translationOutput.textContent = formattedOutput;
                     aiTranslationCard.classList.remove('hidden');
                     
-                    // *** NEW: Automatically call reverse translate ***
-                    handleReverseTranslate(); 
+                    // *** NEW: Automatically call reverse translate with ONLY the translated text ***
+                    handleReverseTranslate(translationOnly); 
 
                 } else {
                     showError(result.error);
@@ -1121,8 +1125,23 @@ Translation:
         /**
          * Handle Reverse Translation
          */
-        async function handleReverseTranslate() {
-            const textToReverseTranslate = translationOutput.textContent;
+        async function handleReverseTranslate(inputText = null) {
+            // Determine text to reverse translate
+            let textToReverseTranslate = inputText;
+
+            // Fallback logic: If not provided directly, try to extract from the UI (legacy support)
+            if (!textToReverseTranslate) {
+                const currentContent = translationOutput.textContent;
+                if (currentContent.includes('↓')) {
+                    // If arrow exists, take the part after the arrow
+                    const parts = currentContent.split('↓');
+                    textToReverseTranslate = parts[parts.length - 1].trim();
+                } else {
+                    // Fallback: take everything
+                    textToReverseTranslate = currentContent;
+                }
+            }
+
             if (!textToReverseTranslate) return;
 
             const apiKey = apiKeyInput.value;
